@@ -1,0 +1,21 @@
+import discord
+
+async def revoke_role(ctx, member: discord.Member = None, *, role_name: str = None):
+    if member is None and ctx.message.mentions:
+        member = ctx.message.mentions[0]
+    if member is None or role_name is None:
+        await ctx.send('Usage: !remove @user role_name')
+        return
+
+    guild = ctx.guild
+    role = discord.utils.get(guild.roles, name=role_name)
+    if not role:
+        await ctx.send(f'Role "{role_name}" not found.')
+        return
+    try:
+        await member.remove_roles(role, reason="Role removed via bot command")
+        await ctx.send(f'Role "{role_name}" removed from {member.mention}.')
+    except discord.Forbidden:
+        await ctx.send("I don't have permission to remove roles.")
+    except Exception as e:
+        await ctx.send(f"An error occurred: {e}")
