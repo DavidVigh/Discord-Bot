@@ -11,6 +11,7 @@ from src.deleteController import delete_controller
 
 from src.assignController import assign_controller
 from src.revokeController import revoke_controller
+from src.permissionController import permission_controller
 
 load_dotenv()
 token = os.getenv('DISCORD_TOKEN')
@@ -95,21 +96,94 @@ async def edit(ctx, role_name: str, what_to_edit: str, new_value: str = None):
 # DELETE COMMAND
 @bot.command(name="delete")
 @commands.has_permissions(manage_roles=True)
-async def delete_role(ctx, *, role_name: str = None):
-    await delete_controller(ctx, role_name=role_name)
+async def delete(ctx, *, type_: str):
+    await delete_controller(ctx, type_)
 
 # ASSIGN COMMAND
 @bot.command(name="assign")
 @commands.has_permissions(manage_roles=True)
-async def assign(ctx, member: discord.Member = None, *, role_name: str = None):
-    await assign_controller(ctx, member=member, role_name=role_name)
+async def assign(ctx, *, args):
+    """
+    Usage:
+    !assign role RoleName -c CategoryName
+    !assign @user RoleName
+    """
+    args_list = args.split()
+    if len(args_list) >= 2 and args_list[0].lower() == "role" and "-c" in args_list:
+        role_index = 1
+        c_index = args_list.index("-c")
+        role_name = " ".join(args_list[role_index:c_index])
+        category_name = " ".join(args_list[c_index+1:])
+        await assign_controller(ctx, role_name=role_name, category_name=category_name)
+        return
+
+    # Handle member assignment
+    if ctx.message.mentions:
+        member = ctx.message.mentions[0]
+        role_name = " ".join(args_list[1:])
+        await assign_controller(ctx, member=member, role_name=role_name)
+        return
+
+    await ctx.send("Invalid command format. Use `!assign role RoleName -c CategoryName` or `!assign @user RoleName`")
 
 # REVOKE COMMAND
 @bot.command(name="revoke")
 @commands.has_permissions(manage_roles=True)
-async def revoke(ctx, member: discord.Member = None, *, role_name: str = None):
-    await revoke_controller(ctx, member=member, role_name=role_name)
+async def revoke(ctx, *, args):
+    """
+    Usage:
+    !revoke role RoleName -c CategoryName
+    !revoke @user RoleName
+    """
+    args_list = args.split()
+    if len(args_list) >= 2 and args_list[0].lower() == "role" and "-c" in args_list:
+        role_index = 1
+        c_index = args_list.index("-c")
+        role_name = " ".join(args_list[role_index:c_index])
+        category_name = " ".join(args_list[c_index+1:])
+        await revoke_controller(ctx, role_name=role_name, category_name=category_name)
+        return
 
+    # Handle member revocation
+    if ctx.message.mentions:
+        member = ctx.message.mentions[0]
+        role_name = " ".join(args_list[1:])
+        await revoke_controller(ctx, member=member, role_name=role_name)
+        return
+
+    await ctx.send("Invalid command format. Use `!revoke role RoleName -c CategoryName` or `!revoke @user RoleName`")
+
+# PERM COMMAND
+
+@bot.command(name="perm")
+@commands.has_permissions(manage_roles=True, manage_channels=True)
+async def perm(ctx, *, command_text: str):
+    """
+    Usage:
+    !perm RoleName CategoryName add|remove perm1,perm2
+    !perm RoleName CategoryName set default|moderator|admin
+    """
+    parts = command_text.split()
+
+    # Find the action index
+    try:
+        action_index = next(i for i, part in enumerate(parts) if part.lower() in ["add", "remove", "set"])
+    except StopIteration:
+        await ctx.send("Missing action: 'add', 'remove' or 'set'.")
+        return
+
+    action = parts[action_index]
+    permissions = " ".join(parts[action_index + 1:])
+    before_action = parts[:action_index]
+
+    if len(before_action) < 2:
+        await ctx.send("Please provide both role name and category name.")
+        return
+
+    role_name = before_action[0]
+    category_name = " ".join(before_action[1:])
+
+    await permission_controller(ctx, role_name, category_name, action, permissions=permissions)
 
 # Run the bot
 bot.run(token, log_handler=handler, log_level=logging.DEBUG)
